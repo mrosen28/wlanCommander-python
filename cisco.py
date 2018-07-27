@@ -4,11 +4,8 @@ ap = telnetlib.Telnet()
 connected = False
 HOST = "192.168.188.3" #Controller IP Address
 PORT = 23 #Telnet Port
-lowBandChannels = [3,6]
-highBandChannels = [36,38,42,149,151,155]
 
 def connect():
-    global ap,connected
     ap = telnetlib.Telnet()
     ap.open(HOST,PORT)
     ap.read_until("Username: ")
@@ -17,81 +14,92 @@ def connect():
     ap.read_until("Password: ")
     password = getpass.getpass()
     ap.write(password + "\n")
-    connected = True
 
-def elevatePrivileges():
-    global ap
+    print("Elevating Privileges... ")
     ap.write("en\n") #Enable
     ap.read_until("Password: ")
     enablePassword = getpass.getpass()
     ap.write(enablePassword + "\n")
     print ap.read_until("#")
 
-def setRadioBands(band):
-    if band == 2.4:
-        print("Enabling: 2.4GHz / Disabling: 5GHz")
+    connected = True
+
+def setRadio(band,bandwidth,channel):
+    #Set 802.11 Band (bg/a)
+    if band == "802.11b":
+        print("Enabling: 802.11b/g / Disabling: 802.11a")
         ap.write("ap dot11 5ghz shutdown\n")
         ap.read_until("#")
         ap.write("no ap dot11 24ghz shutdown\n")
         ap.read_until("#")
-        ap.write("ap dot11 24ghz dot11g")
-        ap.read_until("#")
-    elif band == 5.0:
-        print("Enabling: 5GHz / Disabling: 2.4GHz")
+        ap.write("config 802.11b 11gSupport enable\n")
+    elif band == "802.11a":
+        print("Enabling: 802.11a / Disabling: 802.11b/g")
         ap.write("ap dot11 24ghz shutdown\n")
         ap.read_until("#")
         ap.write("no ap dot11 5ghz shutdown\n")
-        ap.read_until("#")
+    ap.read_until("#")
 
-    elif band == None:
-        print("No Band Selected?")
-
-    ap.write("end\n")
-
-def setRadioChannel(channel):
-    print("Setting AP to Broadcast on Channel: " + str(channel))
-    ap.write("configure terminal\n")
-    if channel in lowBandChannels:
-        ap.write("interface dot11Radio 0\n") #2.4GHz Radio
+    #802.11n Support
+    nRadioSupport = raw_input("Enable 802.11n Support? (y/n):")
+    if nRadioSupport == "y":
+        ap.write("config " + band + " 11nSupport enable\n")
         ap.read_until("#")
     else:
-        ap.write("interface dot11Radio 1\n") #5GHz Radio
+        ap.write("config " + band + " 11nSupport disable\n")
         ap.read_until("#")
 
-    read_until("#") #Wait for Prompt
-    ap.write("channel " + str(channel) + "\n")
-    ap.read_until("#")
-    ap.write("end\n")
-    ap.read_until("#")
-
-def setBandWidth(bandwidth):
+    #Channel/Bandwidth Selection
+    print("Setting AP to Broadcast on Channel: " + str(channel))
     print("Setting Channel Bandwidth To: " + str(bandwidth))
-    ap.write("config 802.11a chan_width " + APname + " " + bandwidth + "\n")
+
+    if band == "802.11b":
+        ap.write("interface dot11radio0\n") #2.4GHz Radio
+    else:
+        ap.write("interface dot11radio1\n") #5GHz Radio
+
     ap.read_until("#")
-    ap.write("end\n")
+    ap.write("channel " + str(channel) + " " + str(bandwidth) + "\n")
     ap.read_until("#")
 
 def configAP(select):
+    channel,band,bandwidth = None
+    ap.write("config terminal\n")
+    print ap.read_until("#")
+    print("Now Configuring...")
     if select < 2:
-        setRadioBands(2.4)
+        band = "802.11b"
     else:
-        setRadioBands(5.0)
+        band = "802.11a"
 
     if select == 1:
-        setRadioChannel(3)
+        channel = 2422
     elif select == 2:
-        setRadioChannel(6)
-    elif select == 3 or select == 4 or select == 5:
-        setRadioChannel(36)
-    elif select == 6 or select == 7 or select == 8:
-        setRadioChannel(149)
+        channel = 2437
+    elif select == 3:
+        channel = 5180
+    elif select == 4:
+        channel = 5190
+    elif select == 5:
+        channel = 5210
+    elif select == 6:
+        channel = 5745
+    elif select == 7:
+        channel = 5755
+    elif select == 8:
+        channel = 5775
 
     if select == 3 or select == 6:
-        setBandWidth(20)
+        bandwidth = 20
     elif select == 4 or select == 7:
-        setBandWidth(40)
+        bandwidth = 40
     elif select == 5 or select == 8:
-        setBandWidth(80)
+        bandwidth = 80
+
+    setRadio(band,bandwidth,channel)
+
+    ap.write("end\n")
+    ap.read_until("#")
 
 def printMenu():
     print 30 * "-" , "MENU" , 30 * "-"
@@ -118,8 +126,6 @@ def main():
             if not connected:
                 print("Connecting...")
                 connect()
-                print("Elevating Privileges... ")
-                elevatePrivileges()
             else:
                 print("Already Connected.")
                 continue
