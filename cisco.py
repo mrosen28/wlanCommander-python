@@ -1,11 +1,16 @@
 import getpass,sys,telnetlib
 
 ap = telnetlib.Telnet()
+#GET AP NAMES FROM "SHOW AP SUMMARY" LIST?
+ap1 = "AP881d.fc1d.d9e0"
+ap2 = "AP80e0.1dc8.6ecc"
+apName = None
 connected = False
 HOST = "192.168.188.3" #Controller IP Address
 PORT = 23 #Telnet Port
 
 def connect():
+    global connected,ap
     ap = telnetlib.Telnet()
     ap.open(HOST,PORT)
     ap.read_until("Username: ")
@@ -21,79 +26,146 @@ def connect():
     enablePassword = getpass.getpass()
     ap.write(enablePassword + "\n")
     print ap.read_until("#")
-
     connected = True
 
 def setRadio(band,bandwidth,channel):
-    #Set 802.11 Band (bg/a)
-    if band == "802.11b":
-        print("Enabling: 802.11b/g / Disabling: 802.11a")
-        ap.write("ap dot11 5ghz shutdown\n")
+    #Disable Radios
+    ap.write("ap name " + apName + " ap dot11 5ghz shutdown\n")
+    ap.read_until("#")
+    ap.write("ap name " + apName + " ap dot11 24ghz shutdown\n")
+    ap.read_until("#")
+
+    #Enable 802.11 Bands (bg/n/ac)
+    if band == "24ghz":
+        print("Enabling: 802.11bg / Disabling: 802.11ac")
+        ap.write("ap dot11 24ghz dot11g\n")
+        ap.read_until("[y]")
+        ap.write("\n")
         ap.read_until("#")
         ap.write("no ap dot11 24ghz shutdown\n")
+    elif band == "5ghz":
+        print("Enabling: 802.11ac / Disabling: 802.11bg")
+        ap.write("no ap dot11 24ghz dot11g\n")
+        ap.read_until("[y]")
+        ap.write("\n")
         ap.read_until("#")
-        ap.write("config 802.11b 11gSupport enable\n")
-    elif band == "802.11a":
-        print("Enabling: 802.11a / Disabling: 802.11b/g")
-        ap.write("ap dot11 24ghz shutdown\n")
+        ap.write("ap dot11 5ghz dot11ac\n")
         ap.read_until("#")
         ap.write("no ap dot11 5ghz shutdown\n")
     ap.read_until("#")
-
     #802.11n Support
-    nRadioSupport = raw_input("Enable 802.11n Support? (y/n):")
-    if nRadioSupport == "y":
-        ap.write("config " + band + " 11nSupport enable\n")
-        ap.read_until("#")
+    #nRadioSupport = raw_input("Enable 802.11n Support? (y/n):")
+    # if nRadioSupport == "y":
+    #     ap.write("ap dot11 24ghz dot11n\n")
+    #     ap.read_until("#")
+    #     ap.write("ap dot11 5ghz dot11n\n")
+    # else:
+    print("Enabling 802.11n")
+    ap.write("no ap dot11 24ghz dot11n\n")
+    ap.read_until("#")
+    ap.write("no ap dot11 5ghz dot11n\n")
+    ap.read_until("#")
+
+    #Set Data Rates
+    print("Setting Data Rates")
+    aSupportedRates = [18,24,36,48,54]
+    bDisabledRates = [1,2,5.5,6,9,11,12,18,24,36,48,54]
+    bMCSRates = [1,2,3,4,5,6,7]
+    aMCSRates = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    acMCSRates = [8,9]
+    if band == "24ghz"
+        if channel == 3:
+            ap.write("ap dot11 24ghz rate 11 mandatory")
+            ap.read_until("#")
+        elif channel == 6:
+            ap.write("ap dot11 24ghz rate 11 disable")
+            ap.read_until("#")
+
+        for x in bDisabledRates:
+            ap.write("ap dot11 24ghz rate " + str(x) + " disable\n")
+            ap.read_until("#")
+
+        for x in bMCSRates:
+            ap.write("ap dot11 24ghz dot11n mcs tx " + str(x) + "\n")
+            ap.read_until("#")
+
     else:
-        ap.write("config " + band + " 11nSupport disable\n")
+        ap.write("ap dot11 5ghz rate 6 disable\n")
         ap.read_until("#")
+        ap.write("ap dot11 5ghz rate 9 disable\n")
+        ap.read_until("#")
+        ap.write("ap dot11 5ghz rate 12 mandatory\n")
+        ap.read_until("#")
+        for x in aSupportedRates:
+            ap.write("ap dot11 5ghz rate " + str(x) + " supported\n")
+            ap.read_until("#")
+
+        for x in aMCSRates:
+            ap.write("ap dot11 5ghz dot11n mcs tx " + str(x) + "\n")
+            ap.read_until("#")
+
+        for x in acMCSRates:
+            ap.write("ap dot11 5ghz dot11ac mcs tx " + str(x) + "spatial-stream 1\n")
+            ap.read_until("#")
+            ap.write("ap dot11 5ghz dot11ac mcs tx " + str(x) + "spatial-stream 2\n")
+            ap.read_until("#")
 
     #Channel/Bandwidth Selection
-    print("Setting AP to Broadcast on Channel: " + str(channel))
-    print("Setting Channel Bandwidth To: " + str(bandwidth))
-
+    print("Setting AP to Broadcast on Frequency: " + str(channel) + ". (Bandwidth = " + str(bandwidth) + "MHz)")
     if band == "802.11b":
-        ap.write("interface dot11radio0\n") #2.4GHz Radio
+        ap.write("ap name " + apName + " dot11 24ghz channel " + str(channel) + "\n")#2.4GHz Channel Setting
     else:
-        ap.write("interface dot11radio1\n") #5GHz Radio
-
+        ap.write("ap name " + apName + " dot11 5ghz channel " + str(channel) + "\n")#5GHz Channel Setting
+        ap.write("ap name " + apName + " dot11 5ghz channel width " + str(bandwidth) + "\n")#5GHz Channel Width
     ap.read_until("#")
-    ap.write("channel " + str(channel) + " " + str(bandwidth) + "\n")
+
+    #Enable Radios
+    print("Enabling " + band + "  Radio")
+    ap.write("ap name " + apName + " no dot11 " + band + "shutdown\n")
     ap.read_until("#")
 
 def configAP(select):
-    channel,band,bandwidth = None
+    global apName
     ap.write("config terminal\n")
-    print ap.read_until("#")
+    ap.read_until("#")
     print("Now Configuring...")
-    if select < 2:
-        band = "802.11b"
+
+    print("Select AP:")
+    print("1: AP881d.fc1d.d9e0")
+    print("2: AP80e0.1dc8.6ecc")
+    apChoice = raw_input("Enter #:")
+    if apChoice == 1:
+        apName = ap1
     else:
-        band = "802.11a"
+        apName = ap2
+
+    if select < 2:
+        band = "24ghz"
+    else:
+        band = "5ghz"
 
     if select == 1:
-        channel = 2422
+        channel = 3
     elif select == 2:
-        channel = 2437
+        channel = 6
     elif select == 3:
-        channel = 5180
+        channel = 36
     elif select == 4:
-        channel = 5190
+        channel = 38
     elif select == 5:
-        channel = 5210
+        channel = 42
     elif select == 6:
-        channel = 5745
+        channel = 149
     elif select == 7:
-        channel = 5755
+        channel = 151
     elif select == 8:
-        channel = 5775
+        channel = 155
 
-    if select == 3 or select == 6:
+    if select in [1,2,3,6]:
         bandwidth = 20
-    elif select == 4 or select == 7:
+    elif select in [4,7]:
         bandwidth = 40
-    elif select == 5 or select == 8:
+    elif select in [5,8]:
         bandwidth = 80
 
     setRadio(band,bandwidth,channel)
@@ -104,7 +176,7 @@ def configAP(select):
 def printMenu():
     print 30 * "-" , "MENU" , 30 * "-"
     if not connected:
-        print ("0. Connect to Controller & Elevate Priveleges")
+        print ("0. Connect to Controller")
     else:
         print ("(0) Connected to Controller @ " + HOST)
         print ("1. Test Setup 1: 2.4GHz - Channel 3 - 20MHz")
