@@ -44,6 +44,25 @@ def connect():
             apName = ap1
         else:
             apName = ap2
+            
+                apList = []
+                
+        #ap.write("show ap dot11 " + band + " summary\n")
+        #for i in range(3): #Remove Extra String Data
+            #ap.read_until("\n")
+        #apList.append(ap.read_until(" "))
+        #ap.read_until("\n")
+        #apList.append(ap.read_until(" "))
+        #ap.read_until("#")
+
+        #print("Select AP:")
+        #apNum = 0
+        #for foundAP in apList:
+            #print(apNum + ": " + foundAP)
+            #apNum += 1
+        #apChoice = raw_input("Enter #:")
+        #apName = apList[apChoice]
+
 
     connected = True
 
@@ -73,7 +92,7 @@ def setRadio(band,bandwidth,channel):
 
     #Set Data Rates
     print("Setting Data Rates...")
-    aSupportedRates = ["RATE_18M","RATE_24","RATE_36M","RATE_48M","RATE_54M"]
+    aSupportedRates = ["RATE_18M","RATE_24M","RATE_36M","RATE_48M","RATE_54M"]
     bDisabledRates = ["RATE_1M","RATE_2M","RATE_5_5M","RATE_6M","RATE_9M"]
     bSupportedRates = ["RATE_12M","RATE_18M","RATE_24M","RATE_36M","RATE_48M","RATE_54M"]
     bMCSRates = ["RATE_1M","RATE_2M","RATE_3M","RATE_4M","RATE_5M","RATE_6M","RATE_7M"]
@@ -181,10 +200,7 @@ def setRadio(band,bandwidth,channel):
 
 
 def configAP(select):
-    if select <= 2:
-        band = "24ghz"
-    else:
-        band = "5ghz"
+    band="24ghz"if select<=2 else "5ghz"
 
     if select == 1:
         channel = 3
@@ -225,6 +241,9 @@ def main():
     while True:
         printMenu()
         select = int(input("Enter Choice Number: "))
+        if select not in range(9):
+            print("Incorrect Entry! Try Again!")
+            continue
         if select == 0:
             if not connected:
                 print("Connecting...")
