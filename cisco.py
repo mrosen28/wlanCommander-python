@@ -45,7 +45,7 @@ def connect():
         else:
             apName = ap2
             
-                apList = []
+                #apList = []
                 
         #ap.write("show ap dot11 " + band + " summary\n")
         #for i in range(3): #Remove Extra String Data
