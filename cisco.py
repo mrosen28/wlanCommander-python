@@ -1,4 +1,4 @@
-import getpass,sys,telnetlib
+import getpass,sys,telnetlib,time
 
 ap = telnetlib.Telnet()
 #GET AP NAMES FROM "SHOW AP SUMMARY" LIST?
@@ -36,17 +36,23 @@ def connect():
     print("Root Privileges Enabled!")
 
     if apName == None:
-        print("Select AP:")
-        print("1: AP881d.fc1d.d9e0")
-        print("2: AP80e0.1dc8.6ecc")
-        apChoice = raw_input("Enter #:")
-        if apChoice == 1:
-            apName = ap1
-        else:
-            apName = ap2
-            
-                #apList = []
-                
+        while True:
+            print("Select AP:")
+            print("1: AP881d.fc1d.d9e0")
+            print("2: AP80e0.1dc8.6ecc")
+            apChoice = int(raw_input("Enter #:"))
+            if apChoice == 1:
+                apName = ap1
+                break
+            elif apChoice == 2:
+                apName = ap2
+                break
+            else:
+                print("Incorrect AP Choice! Try Again...")
+                continue
+    connected = True
+
+        #apList = []
         #ap.write("show ap dot11 " + band + " summary\n")
         #for i in range(3): #Remove Extra String Data
             #ap.read_until("\n")
@@ -63,22 +69,20 @@ def connect():
         #apChoice = raw_input("Enter #:")
         #apName = apList[apChoice]
 
-
-    connected = True
-
 def setRadio(band,bandwidth,channel):
+    #Disable Radios
+    print("Disabling Radios!")
+    ap.write("ap name " + apName + " dot11 " + band + " shutdown\n")
+    ap.read_until("#")
     ap.write("config terminal\n")
     ap.read_until("#")
     print("Now Configuring...")
-
-    #Disable Networks
     ap.write("ap dot11 5ghz shutdown\n")
     ap.read_until("#")
     ap.write("ap dot11 24ghz shutdown\n")
     ap.read_until("#")
 
-
-    #Enable 802.11 Bands (bg/n/ac)
+    #Optional Enable 802.11 Bands (bg/n/ac)
     #802.11n Support
     #nRadioSupport = raw_input("Enable 802.11n Support? (y/n):")
     # if nRadioSupport == "y":
@@ -86,6 +90,7 @@ def setRadio(band,bandwidth,channel):
     #     ap.read_until("#")
     #     ap.write("ap dot11 5ghz dot11n\n")
     # else:
+    #Mandatory 802.11n Support
     print("Enabling 802.11n!")
     ap.write("ap dot11 " + band + " dot11n\n")
     ap.read_until("#")
@@ -137,23 +142,15 @@ def setRadio(band,bandwidth,channel):
             ap.write("ap dot11 5ghz dot11ac mcs tx " + str(x) + "spatial-stream 2\n")
             ap.read_until("#")
 
-
+    #Enable 802.11 Protocols (2.4GHz-g / 5GHz-ac)
     if band == "24ghz":
         print("Enabling: 802.11bg!")
         ap.write("ap dot11 24ghz dot11g\n")
         ap.read_until("[y]")
         ap.write("\n")
-        ap.read_until("#")
-        ap.write("no ap dot11 24ghz shutdown\n")
     elif band == "5ghz":
         print("Enabling: 802.11a/ac!")
-        ap.write("no ap dot11 24ghz dot11g\n")
-        ap.read_until("[y]")
-        ap.write("\n")
-        ap.read_until("#")
         ap.write("ap dot11 5ghz dot11ac\n")
-        ap.read_until("#")
-        ap.write("no ap dot11 5ghz shutdown\n")
     ap.read_until("#")
 
     #Exit Configure Terminal
@@ -171,12 +168,16 @@ def setRadio(band,bandwidth,channel):
     ap.read_until("#")
 
     #Enable Selected Radio
+    ap.write("config terminal\n")
+    ap.read_until("#")
     ap.write("no ap dot11 " + band + " shutdown\n")
     ap.read_until("#")
-
-    print("Enabling " + band + " Radio!")
-    ap.write("ap name " + apName + " no dot11 " + band + "shutdown\n")
+    ap.write("end\n")
     ap.read_until("#")
+    print("Enabling " + band + " Radio!")
+    ap.write("ap name " + apName + " no dot11 " + band + " shutdown\n")
+    ap.read_until("#")
+    time.sleep(5)
 
     #Show Current Radio Config
     ap.write("show ap dot11 " + band + " summary\n")
@@ -197,7 +198,6 @@ def setRadio(band,bandwidth,channel):
     mcsRates = mcsRates[0:len(mcsRates)-15]
     print("MCS Rates:" + mcsRates)
     ap.read_until("#")
-
 
 def configAP(select):
     band="24ghz"if select<=2 else "5ghz"
@@ -241,7 +241,7 @@ def main():
     while True:
         printMenu()
         select = int(input("Enter Choice Number: "))
-        if select not in range(9):
+        if select not in range(10):
             print("Incorrect Entry! Try Again!")
             continue
         if select == 0:
